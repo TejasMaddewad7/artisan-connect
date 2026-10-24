@@ -1,26 +1,191 @@
 @import "tailwindcss";
 
+/* ─── CSS Custom Properties ─────────────────────────────────── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #fbefe8;
+  --foreground: #4a2418;
+
+  --card: #ffffff;
+  --card-foreground: #4a2418;
+
+  --popover: #ffffff;
+  --popover-foreground: #4a2418;
+
+  --primary: #b5502b;
+  --primary-foreground: #ffffff;
+
+  --secondary: #f7e2d4;
+  --secondary-foreground: #4a2418;
+
+  --muted: #f0e6df;
+  --muted-foreground: #7a5a3f;
+
+  --accent: #7a8b69;
+  --accent-foreground: #ffffff;
+
+  --destructive: #dc2626;
+
+  --border: #dcc8b8;
+  --input: #dcc8b8;
+  --ring: #b5502b;
+
+  --radius: 0.75rem;
+
+  --font-inter: "Inter", sans-serif;
+  --font-cormorant: "Cormorant Garamond", serif;
 }
 
-@theme inline {
+/* ─── Tailwind v4 Theme Tokens ───────────────────────────────── */
+@theme {
+  /* Terracotta palette — primary brand color */
+  --color-terracotta-50: #fdf3ef;
+  --color-terracotta-100: #fae2d7;
+  --color-terracotta-200: #f4c3ae;
+  --color-terracotta-300: #ec9e7f;
+  --color-terracotta-400: #e07550;
+  --color-terracotta-500: #b5502b;
+  --color-terracotta-600: #a04424;
+  --color-terracotta-700: #83361c;
+  --color-terracotta-800: #6a2c17;
+  --color-terracotta-900: #572515;
+
+  /* Cream palette — neutral backgrounds */
+  --color-cream-50: #fefaf7;
+  --color-cream-100: #fdf5ee;
+  --color-cream-200: #fae8d5;
+  --color-cream-300: #f6d8bc;
+  --color-cream-400: #f0c49e;
+  --color-cream-500: #e8ae82;
+
+  /* Brown palette — earthy tones */
+  --color-brown-200: #e8d5c4;
+  --color-brown-400: #c4916e;
+  --color-brown-500: #b07a55;
+  --color-brown-600: #8c5e3c;
+  --color-brown-700: #7a4f2f;
+  --color-brown-800: #5c3a22;
+
+  /* Sage / botanical green palette */
+  --color-sage-100: #e8f0e2;
+  --color-sage-200: #ccddc4;
+  --color-sage-300: #aec8a4;
+  --color-sage-400: #8daf81;
+  --color-sage-500: #7a8b69;
+  --color-sage-600: #5f6e50;
+
+  /* Design system semantic tokens */
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  /* Border radius */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 4px);
+  --radius-xl: calc(var(--radius) + 8px);
+
+  /* Font families */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-cormorant), Georgia, serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ─── Base Styles ────────────────────────────────────────────── */
+* {
+  border-color: var(--border);
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-cormorant), serif;
+}
+
+/* ─── Custom scrollbar ───────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #fbefe8;
+}
+::-webkit-scrollbar-thumb {
+  background: #c4a48c;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #a67d60;
+}
+
+/* ─── Animations ─────────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulseHeart {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes accordion-down {
+  from { height: 0; }
+  to { height: var(--radix-accordion-content-height); }
+}
+
+@keyframes accordion-up {
+  from { height: var(--radix-accordion-content-height); }
+  to { height: 0; }
+}
+
+/* ─── Utility classes ────────────────────────────────────────── */
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+.animate-pulse-heart {
+  animation: pulseHeart 0.3s ease-out;
+}
+
+.animate-accordion-down {
+  animation: accordion-down 0.2s ease-out;
+}
+
+.animate-accordion-up {
+  animation: accordion-up 0.2s ease-out;
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #f0e6df 25%, #f7e2d4 50%, #f0e6df 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius);
+}
+
+/* font-heading utility to match font-heading Tailwind class usage */
+.font-heading {
+  font-family: var(--font-cormorant), serif;
 }

@@ -1,0 +1,311 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  CUSTOMER
+  ARTISAN
+  ADMIN
+}
+
+enum ProductStatus {
+  DRAFT
+  PENDING
+  ACTIVE
+  REJECTED
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  RETURN_REQUESTED
+  RETURNED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  RAZORPAY
+  COD
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+model User {
+  id            String          @id @default(cuid())
+  name          String
+  email         String          @unique
+  passwordHash  String?
+  phone         String?
+  avatar        String?
+  role          Role            @default(CUSTOMER)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  artisan       ArtisanProfile?
+  orders        Order[]
+  reviews       Review[]
+  follows       Follow[]
+  cart          Cart?
+  addresses     Address[]
+
+  @@index([email])
+}
+
+model ArtisanProfile {
+  id                String    @id @default(cuid())
+  userId            String    @unique
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shopName          String
+  slug              String    @unique
+  bio               String
+  avatar            String?
+  coverImage        String?
+  city              String
+  state             String
+  pickupAddress     String?
+  panNumber         String?
+  gstin             String?
+  bankAccount       String?
+  ifscCode          String?
+  upiId             String?
+  razorpayAccountId String?
+  isVerified        Boolean   @default(false)
+  ratingAvg         Float     @default(5.0)
+  followerCount     Int       @default(0)
+  productCount      Int       @default(0)
+  craftCategories   String[]
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  products          Product[]
+  subOrders         SubOrder[]
+  followers         Follow[]
+
+  @@index([slug])
+  @@index([city, state])
+}
+
+model Follow {
+  id        String         @id @default(cuid())
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  artisanId String
+  artisan   ArtisanProfile @relation(fields: [artisanId], references: [id], onDelete: Cascade)
+  createdAt DateTime       @default(now())
+
+  @@unique([userId, artisanId])
+  @@index([artisanId])
+}
+
+model Category {
+  id          String     @id @default(cuid())
+  name        String
+  slug        String     @unique
+  subtitle    String?
+  description String?
+  image       String?
+  parentId    String?
+  parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryHierarchy")
+  products    Product[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([slug])
+}
+
+model Product {
+  id                   String        @id @default(cuid())
+  name                 String
+  slug                 String        @unique
+  description          String
+  price                Int           // stored in paise
+  compareAtPrice       Int?
+  badge                String?       // "Bestseller" | "New" | "Popular"
+  tags                 String[]
+  stock                Int           @default(10)
+  isHandmade           Boolean       @default(true)
+  isEco                Boolean       @default(false)
+  supportsLocalArtisans Boolean      @default(true)
+  isMadeToOrder        Boolean       @default(false)
+  leadTimeDays         Int?
+  detailsHtml          String?
+  shippingReturnsHtml  String?
+  careInstructionsHtml String?
+  ratingAvg            Float         @default(5.0)
+  reviewCount          Int           @default(0)
+  status               ProductStatus @default(ACTIVE)
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  categoryId           String
+  category             Category      @relation(fields: [categoryId], references: [id])
+
+  artisanId            String
+  artisan              ArtisanProfile @relation(fields: [artisanId], references: [id])
+
+  images               ProductImage[]
+  variants             ProductVariant[]
+  reviews              Review[]
+  orderItems           OrderItem[]
+  cartItems            CartItem[]
+
+  @@index([slug])
+  @@index([categoryId])
+  @@index([artisanId])
+  @@index([status])
+}
+
+model ProductImage {
+  id        String   @id @default(cuid())
+  url       String
+  alt       String?
+  order     Int      @default(0)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+}
+
+model ProductVariant {
+  id         String   @id @default(cuid())
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  type       String   // "size" | "color" | "material"
+  name       String
+  value      String
+  priceDelta Int      @default(0)
+  stock      Int      @default(5)
+
+  @@index([productId])
+}
+
+model Cart {
+  id        String     @id @default(cuid())
+  userId    String?    @unique
+  user      User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+  updatedAt DateTime   @updatedAt
+}
+
+model CartItem {
+  id        String   @id @default(cuid())
+  cartId    String
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  variantId String?
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+
+  @@index([cartId])
+}
+
+model Order {
+  id              String        @id @default(cuid())
+  orderNumber     String        @unique
+  userId          String
+  user            User          @relation(fields: [userId], references: [id])
+  status          OrderStatus   @default(PENDING_PAYMENT)
+  subtotal        Int           // paise
+  deliveryFee     Int           @default(0)
+  discount        Int           @default(0)
+  tax             Int           @default(0)
+  total           Int           // paise
+  paymentMethod   PaymentMethod @default(RAZORPAY)
+  paymentStatus   PaymentStatus @default(PENDING)
+  razorpayOrderId String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  items           OrderItem[]
+  subOrders       SubOrder[]
+
+  @@index([userId])
+  @@index([orderNumber])
+}
+
+model SubOrder {
+  id               String         @id @default(cuid())
+  orderId          String
+  order            Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  artisanId        String
+  artisan          ArtisanProfile @relation(fields: [artisanId], references: [id])
+  status           OrderStatus    @default(CONFIRMED)
+  subtotal         Int            // paise
+  commissionPaise  Int            // 10% platform commission
+  artisanNetPaise  Int            // 90% payout
+  isPayoutReleased Boolean        @default(false)
+  createdAt        DateTime       @default(now())
+
+  items            OrderItem[]
+
+  @@index([orderId])
+  @@index([artisanId])
+}
+
+model OrderItem {
+  id              String    @id @default(cuid())
+  orderId         String
+  order           Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  subOrderId      String?
+  subOrder        SubOrder? @relation(fields: [subOrderId], references: [id])
+  productId       String
+  product         Product   @relation(fields: [productId], references: [id])
+  quantity        Int
+  priceAtPurchase Int       // in paise
+}
+
+model Address {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName     String
+  phone        String
+  addressLine1 String
+  addressLine2 String?
+  city         String
+  state        String
+  pincode      String
+  isDefault    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Review {
+  id                 String   @id @default(cuid())
+  productId          String
+  product            Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rating             Int
+  title              String?
+  content            String
+  isVerifiedPurchase Boolean  @default(true)
+  createdAt          DateTime @default(now())
+
+  @@index([productId])
+  @@index([userId])
+}
+
+model NewsletterSubscriber {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+}
