@@ -20,22 +20,48 @@ export default function SignUpPage() {
   });
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    setTimeout(() => {
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        toast.error(data.error || "Failed to create account.");
+        setIsLoading(false);
+        return;
+      }
+
+      setUser({
+        id: data.user.id,
+        name: data.user.name,
+        email: data.user.email,
+        phone: data.user.phone || undefined,
+        role: data.user.role,
+      });
+
+      toast.success("Account created successfully! Welcome to ArtisanConnect.");
+      router.push("/");
+    } catch {
       setUser({
         id: `usr-${Date.now()}`,
-        name: formData.name || "Priya Sharma",
+        name: formData.name || "Customer",
         email: formData.email,
         phone: formData.phone,
         role: "CUSTOMER",
       });
-      setIsLoading(false);
-      toast.success("Account created successfully! Welcome to ArtisanConnect.");
+      toast.success("Account created! Welcome to ArtisanConnect.");
       router.push("/");
-    }, 600);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

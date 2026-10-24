@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -19,12 +19,34 @@ import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { useOrderStore, type OrderRecord } from "@/stores/order.store";
+import { useAuthStore } from "@/stores/auth.store";
 import { formatPrice } from "@/lib/utils";
 import { toast } from "sonner";
 
 export default function MyOrdersPage() {
-  const orders = useOrderStore((s) => s.orders);
+  const storeOrders = useOrderStore((s) => s.orders);
+  const user = useAuthStore((s) => s.user);
+  const [orders, setOrders] = useState<OrderRecord[]>(storeOrders);
   const [filter, setFilter] = useState<"ALL" | "ACTIVE" | "DELIVERED">("ALL");
+
+  useEffect(() => {
+    async function loadDbOrders() {
+      try {
+        const userId = user?.id || "usr-customer-1";
+        const res = await fetch(`/api/orders?userId=${userId}`);
+        const data = await res.json();
+        if (data.orders && data.orders.length > 0) {
+          // Merge db orders with any store orders (avoiding duplicates)
+          const dbOrderNumbers = new Set(data.orders.map((o: OrderRecord) => o.orderNumber));
+          const uniqueStoreOrders = storeOrders.filter((o) => !dbOrderNumbers.has(o.orderNumber));
+          setOrders([...data.orders, ...uniqueStoreOrders]);
+        }
+      } catch {
+        // Fallback to store orders
+      }
+    }
+    loadDbOrders();
+  }, [user?.id, storeOrders]);
 
   const filteredOrders = orders.filter((o) => {
     if (filter === "ACTIVE") return o.status !== "DELIVERED";

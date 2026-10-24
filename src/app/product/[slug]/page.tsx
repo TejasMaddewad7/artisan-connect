@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Share2,
   MapPin,
+  Star,
 } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
@@ -33,6 +34,7 @@ import {
 } from "@/components/ui/accordion";
 import { useCartStore } from "@/stores/cart.store";
 import { useWishlistStore } from "@/stores/wishlist.store";
+import { useAuthStore } from "@/stores/auth.store";
 import { PRODUCTS, REVIEWS } from "@/lib/data/mock-catalog";
 import { formatPrice } from "@/lib/utils";
 import { toast } from "sonner";
@@ -43,6 +45,65 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   const product = PRODUCTS.find((p) => p.slug === resolvedParams.slug) || PRODUCTS[0];
   const relatedProducts = PRODUCTS.filter((p) => p.id !== product.id).slice(0, 4);
   const reviews = REVIEWS.filter((r) => r.productId === product.id);
+
+  const user = useAuthStore((s) => s.user);
+  const [reviewsList, setReviewsList] = useState(reviews);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [newRating, setNewRating] = useState(5);
+  const [newTitle, setNewTitle] = useState("");
+  const [newContent, setNewContent] = useState("");
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+
+  const handleSubmitReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newContent.trim()) {
+      toast.error("Please enter your review text");
+      return;
+    }
+    setIsSubmittingReview(true);
+    try {
+      const res = await fetch("/api/reviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productId: product.id,
+          userId: user?.id || "usr-customer-1",
+          rating: newRating,
+          title: newTitle.trim(),
+          content: newContent.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Failed to submit review");
+        return;
+      }
+
+      setReviewsList([
+        {
+          id: data.review?.id || `rev-${Date.now()}`,
+          productId: product.id,
+          userId: user?.id || "usr-customer-1",
+          userName: user?.name || "Customer",
+          rating: newRating,
+          title: newTitle.trim(),
+          content: newContent.trim(),
+          createdAt: new Date().toISOString(),
+          isVerifiedPurchase: true,
+        },
+        ...reviewsList,
+      ]);
+      toast.success("Review submitted and saved to Supabase!");
+      setShowReviewForm(false);
+      setNewTitle("");
+      setNewContent("");
+    } catch {
+      toast.error("Network error while submitting review");
+    } finally {
+      setIsSubmittingReview(false);
+    }
+  };
 
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
@@ -366,7 +427,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
 
         {/* Customer Reviews Section */}
         <div className="mt-16 bg-white p-6 sm:p-10 rounded-2xl border border-border/50 shadow-sm">
-          <div className="flex items-center justify-between mb-8 pb-4 border-b border-border/40">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 pb-4 border-b border-border/40">
             <div>
               <h2 className="font-heading text-2xl font-bold text-[#4A2418]">
                 Customer Reviews
@@ -374,15 +435,77 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
               <div className="flex items-center gap-2 mt-1">
                 <RatingStars rating={product.ratingAvg} size="md" />
                 <span className="text-xs text-muted-foreground">
-                  Based on {product.reviewCount} verified purchases
+                  Based on {reviewsList.length} verified purchases
                 </span>
               </div>
             </div>
+            <button
+              onClick={() => setShowReviewForm(!showReviewForm)}
+              className="px-4 py-2 text-xs font-semibold rounded-xl bg-[#B5502B] text-white hover:bg-[#A04424] transition-colors self-start sm:self-auto shadow-sm"
+            >
+              {showReviewForm ? "Cancel Review" : "Write a Review"}
+            </button>
           </div>
 
+          {showReviewForm && (
+            <form onSubmit={handleSubmitReview} className="mb-8 p-5 bg-[#FBEFE8]/60 border border-[#E9CBBB] rounded-xl space-y-4">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[#B5502B]">
+                Share your handcrafted experience
+              </h3>
+              <div>
+                <label className="block text-xs font-semibold mb-1">Your Rating</label>
+                <div className="flex items-center gap-1.5">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setNewRating(star)}
+                      className="p-1 hover:scale-110 transition-transform"
+                    >
+                      <Star
+                        className={`w-5 h-5 ${
+                          star <= newRating ? "text-amber-500 fill-amber-500" : "text-gray-300"
+                        }`}
+                      />
+                    </button>
+                  ))}
+                  <span className="text-xs font-medium ml-2">{newRating} / 5 Stars</span>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold mb-1">Review Headline</label>
+                <input
+                  type="text"
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  placeholder="e.g., Exquisite craftsmanship and authentic finish"
+                  className="w-full h-9 px-3 text-xs rounded-lg border border-border bg-white focus:ring-1 focus:ring-[#B5502B]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold mb-1">Your Feedback</label>
+                <textarea
+                  rows={3}
+                  required
+                  value={newContent}
+                  onChange={(e) => setNewContent(e.target.value)}
+                  placeholder="Share details about the packaging, handmade texture, or the artisan's craft..."
+                  className="w-full p-3 text-xs rounded-lg border border-border bg-white focus:ring-1 focus:ring-[#B5502B]"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={isSubmittingReview}
+                className="px-5 py-2.5 rounded-xl bg-[#B5502B] text-white text-xs font-semibold hover:bg-[#A04424] transition-colors disabled:opacity-60 shadow-sm"
+              >
+                {isSubmittingReview ? "Submitting to Supabase..." : "Submit Review"}
+              </button>
+            </form>
+          )}
+
           <div className="space-y-6">
-            {reviews.length > 0 ? (
-              reviews.map((rev) => (
+            {reviewsList.length > 0 ? (
+              reviewsList.map((rev) => (
                 <div key={rev.id} className="pb-6 border-b border-border/30 last:border-0">
                   <div className="flex items-center justify-between">
                     <div>

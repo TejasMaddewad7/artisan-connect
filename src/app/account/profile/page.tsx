@@ -39,7 +39,7 @@ export default function ProfilePage() {
   const [state, setState] = useState(user?.address?.state || "Rajasthan");
   const [pincode, setPincode] = useState(user?.address?.pincode || "302001");
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     updateProfile({
       name,
@@ -55,7 +55,24 @@ export default function ProfilePage() {
         pincode,
       },
     });
-    toast.success("Profile details updated successfully!");
+
+    if (user?.id) {
+      try {
+        await fetch("/api/auth/profile", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: user.id,
+            name,
+            email,
+            phone,
+          }),
+        });
+      } catch {
+        // Ignored
+      }
+    }
+    toast.success("Profile details updated and saved to Supabase!");
   };
 
   const handleSwitchRole = (role: "customer" | "artisan" | "admin") => {

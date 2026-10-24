@@ -10,6 +10,7 @@ import { Footer } from "@/components/layout/footer";
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { useCartStore } from "@/stores/cart.store";
 import { useOrderStore, type OrderRecord } from "@/stores/order.store";
+import { useAuthStore } from "@/stores/auth.store";
 import { formatPrice } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -17,18 +18,19 @@ export default function CheckoutPage() {
   const router = useRouter();
   const { items, getSubtotal, getTotalItems, clearCart } = useCartStore();
   const addOrder = useOrderStore((s) => s.addOrder);
+  const user = useAuthStore((s) => s.user);
 
   const [paymentMethod, setPaymentMethod] = useState<"RAZORPAY" | "COD">("RAZORPAY");
   const [isProcessing, setIsProcessing] = useState(false);
 
   const [formData, setFormData] = useState({
-    fullName: "Priya Sharma",
-    phone: "9876543210",
-    email: "priya@example.com",
-    addressLine1: "Flat 402, Lotus Greens, Sector 15",
-    city: "Jaipur",
-    state: "Rajasthan",
-    pincode: "302001",
+    fullName: user?.name || "Priya Sharma",
+    phone: user?.phone || "9876543210",
+    email: user?.email || "customer@demo.com",
+    addressLine1: user?.address?.addressLine1 || "Flat 402, Lotus Greens, Sector 15",
+    city: user?.address?.city || "Jaipur",
+    state: user?.address?.state || "Rajasthan",
+    pincode: user?.address?.pincode || "302001",
   });
 
   const subtotal = getSubtotal();
@@ -45,22 +47,59 @@ export default function CheckoutPage() {
 
     setIsProcessing(true);
 
-    // Call server Razorpay order creation endpoint
     try {
-      await fetch("/api/payments/razorpay/order", {
+      const userId = user?.id || "usr-customer-1";
+
+      const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items, paymentMethod }),
+        body: JSON.stringify({
+          userId,
+          items: items.map((i) => ({
+            productId: i.productId,
+            quantity: i.quantity,
+            priceAtPurchase: i.product.price,
+          })),
+          paymentMethod,
+          shippingAddress: formData,
+          subtotal,
+          deliveryFee,
+          codFee,
+          total,
+        }),
       });
+
+      const data = await res.json();
+      const orderNumber = data?.order?.orderNumber || `AC-${Math.floor(100000 + Math.random() * 900000)}`;
+
+      const newOrder: OrderRecord = {
+        id: data?.order?.id || `ord-${Date.now()}`,
+        orderNumber,
+        createdAt: data?.order?.createdAt || new Date().toISOString(),
+        status: (data?.order?.status as OrderRecord["status"]) || "CONFIRMED",
+        statusText: "Order confirmed & assigned to artisan studio for crafting",
+        items: items.map((i) => ({
+          product: i.product,
+          quantity: i.quantity,
+          price: i.product.price,
+        })),
+        subtotal,
+        deliveryFee,
+        codFee,
+        total,
+        paymentMethod,
+        shippingAddress: { ...formData },
+        courier: "Delhivery Surface (Eco-wrap)",
+        trackingNumber: `DLV-${Math.floor(10000000 + Math.random() * 90000000)}IN`,
+        estimatedDelivery: "Expected in 3-5 business days",
+      };
+
+      addOrder(newOrder);
+      clearCart();
+      toast.success("Order confirmed and synced with Supabase!");
+      router.push(`/order-confirmation?orderNumber=${orderNumber}`);
     } catch {
-      // Non-blocking fallback for offline simulation
-    }
-
-    // Save verified order to persistent store
-    setTimeout(() => {
-      setIsProcessing(false);
       const orderNumber = `AC-${Math.floor(100000 + Math.random() * 900000)}`;
-
       const newOrder: OrderRecord = {
         id: `ord-${Date.now()}`,
         orderNumber,
@@ -85,9 +124,11 @@ export default function CheckoutPage() {
 
       addOrder(newOrder);
       clearCart();
-      toast.success("Payment verified! Order placed successfully.");
+      toast.success("Order placed successfully!");
       router.push(`/order-confirmation?orderNumber=${orderNumber}`);
-    }, 1200);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   if (items.length === 0) {

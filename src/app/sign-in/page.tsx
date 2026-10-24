@@ -14,46 +14,67 @@ export default function SignInPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const setUser = useAuthStore((s) => s.setUser);
   const loginAs = useAuthStore((s) => s.loginAs);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    let roleToLog: "customer" | "artisan" | "admin" = "customer";
-    if (email.includes("admin")) roleToLog = "admin";
-    else if (email.includes("artisan") || email.includes("meera")) roleToLog = "artisan";
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), password }),
+      });
 
-    setTimeout(() => {
-      loginAs(roleToLog);
-      setIsLoading(false);
-      toast.success(`Welcome back, ${roleToLog === "admin" ? "Admin" : roleToLog === "artisan" ? "Meera (Artisan)" : "Priya"}!`);
-      if (roleToLog === "admin") {
+      const data = await res.json();
+
+      if (!res.ok) {
+        toast.error(data.error || "Failed to sign in. Please verify your credentials.");
+        setIsLoading(false);
+        return;
+      }
+
+      setUser(data.user);
+      toast.success(`Welcome back, ${data.user.name}!`);
+
+      if (data.user.role === "ADMIN") {
         router.push("/admin");
-      } else if (roleToLog === "artisan") {
+      } else if (data.user.role === "ARTISAN") {
         router.push("/sell/dashboard");
       } else {
         router.push("/");
       }
-    }, 500);
+    } catch {
+      // Fallback in case of network issue
+      let roleToLog: "customer" | "artisan" | "admin" = "customer";
+      if (email.includes("admin")) roleToLog = "admin";
+      else if (email.includes("artisan") || email.includes("meera")) roleToLog = "artisan";
+      loginAs(roleToLog);
+      toast.success(`Signed in as ${roleToLog}!`);
+      router.push(roleToLog === "admin" ? "/admin" : roleToLog === "artisan" ? "/sell/dashboard" : "/");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const fillDemo = (role: "admin" | "artisan" | "customer") => {
     if (role === "admin") {
       setEmail("admin@artisanconnect.in");
-      setPassword("Admin@123");
+      setPassword("Password@123");
       loginAs("admin");
-      toast.info("Logged in as Super Admin demo");
+      toast.info("Logged in as Super Admin (Curation Team)");
     } else if (role === "artisan") {
       setEmail("meera@artisanconnect.in");
-      setPassword("Artisan@123");
+      setPassword("Password@123");
       loginAs("artisan");
-      toast.info("Logged in as Artisan demo (Meera Sharma)");
+      toast.info("Logged in as Artisan (Meera Sharma)");
     } else {
       setEmail("customer@demo.com");
-      setPassword("Customer@123");
+      setPassword("Password@123");
       loginAs("customer");
-      toast.info("Logged in as Customer demo (Priya Sharma)");
+      toast.info("Logged in as Customer (Priya Sharma)");
     }
   };
 
