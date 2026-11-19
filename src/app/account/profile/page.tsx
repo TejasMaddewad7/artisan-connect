@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -15,6 +15,7 @@ import {
   Store,
   LayoutDashboard,
   CheckCircle2,
+  LogIn,
 } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
@@ -22,22 +23,37 @@ import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { useAuthStore, type UserRole } from "@/stores/auth.store";
 import { useOrderStore } from "@/stores/order.store";
 import { useWishlistStore } from "@/stores/wishlist.store";
+import { GoogleLoginSection } from "@/components/auth/google-login-modal";
 import { toast } from "sonner";
 
 export default function ProfilePage() {
-  const { user, updateProfile, loginAs } = useAuthStore();
+  const { user, updateProfile } = useAuthStore();
   const orders = useOrderStore((s) => s.orders);
   const wishlistCount = useWishlistStore((s) => s.getTotalItems());
 
-  const [name, setName] = useState(user?.name || "Priya Sharma");
-  const [email, setEmail] = useState(user?.email || "customer@demo.com");
-  const [phone, setPhone] = useState(user?.phone || "+91 98765 43210");
+  const [name, setName] = useState(user?.name || "");
+  const [email, setEmail] = useState(user?.email || "");
+  const [phone, setPhone] = useState(user?.phone || "");
   const [addressLine1, setAddressLine1] = useState(
-    user?.address?.addressLine1 || "Flat 402, Lotus Greens, Sector 15"
+    user?.address?.addressLine1 || ""
   );
-  const [city, setCity] = useState(user?.address?.city || "Jaipur");
-  const [state, setState] = useState(user?.address?.state || "Rajasthan");
-  const [pincode, setPincode] = useState(user?.address?.pincode || "302001");
+  const [city, setCity] = useState(user?.address?.city || "");
+  const [state, setState] = useState(user?.address?.state || "");
+  const [pincode, setPincode] = useState(user?.address?.pincode || "");
+
+  useEffect(() => {
+    if (user) {
+      setName(user.name || "");
+      setEmail(user.email || "");
+      setPhone(user.phone || "");
+      if (user.address) {
+        setAddressLine1(user.address.addressLine1 || "");
+        setCity(user.address.city || "");
+        setState(user.address.state || "");
+        setPincode(user.address.pincode || "");
+      }
+    }
+  }, [user]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,26 +88,44 @@ export default function ProfilePage() {
         // Ignored
       }
     }
-    toast.success("Profile details updated and saved to Supabase!");
+    toast.success("Profile details updated successfully!");
   };
 
-  const handleSwitchRole = (role: "customer" | "artisan" | "admin") => {
-    loginAs(role);
-    toast.success(`Switched role to ${role.toUpperCase()}`);
-    // re-sync local form state with switched user
-    const newUser = useAuthStore.getState().user;
-    if (newUser) {
-      setName(newUser.name);
-      setEmail(newUser.email);
-      setPhone(newUser.phone || "");
-      if (newUser.address) {
-        setAddressLine1(newUser.address.addressLine1);
-        setCity(newUser.address.city);
-        setState(newUser.address.state);
-        setPincode(newUser.address.pincode);
-      }
-    }
+  const handleSwitchRole = async (newRole: UserRole) => {
+    updateProfile({ role: newRole });
+    toast.success(`Role updated to ${newRole}`);
   };
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex flex-col bg-[#FBEFE8] text-[#4A2418]">
+        <Header />
+        <main className="flex-1 max-w-md w-full mx-auto px-4 py-16 flex flex-col justify-center">
+          <div className="bg-white rounded-3xl p-8 border border-border/50 shadow-sm text-center">
+            <div className="w-14 h-14 rounded-full bg-cream-100 flex items-center justify-center mx-auto mb-4 text-[#B5502B]">
+              <LogIn className="w-6 h-6" />
+            </div>
+            <h1 className="font-heading text-2xl font-bold text-[#4A2418] mb-1">
+              Sign In to Your Account
+            </h1>
+            <p className="text-xs text-muted-foreground mb-6">
+              Sign in with your Google account or email to view your profile, orders, and studio settings.
+            </p>
+            <GoogleLoginSection />
+            <div className="mt-6 pt-4 border-t border-border/40">
+              <Link
+                href="/sign-in"
+                className="text-xs font-semibold text-[#B5502B] hover:underline"
+              >
+                Sign in with email and password →
+              </Link>
+            </div>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-[#FBEFE8] text-[#4A2418]">
@@ -115,17 +149,17 @@ export default function ProfilePage() {
               Personal Profile & Preferences
             </h1>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Manage your personal credentials, delivery addresses, and platform roles.
+              Manage your personal credentials, delivery addresses, and account role.
             </p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Left Column: Profile Card & Role Switcher (4 cols) */}
+          {/* Left Column: Profile Card & Role Selector (4 cols) */}
           <div className="lg:col-span-4 space-y-6">
             <div className="bg-white p-6 rounded-2xl border border-border/50 shadow-sm text-center">
               <div className="relative w-24 h-24 rounded-full mx-auto mb-4 overflow-hidden border-4 border-cream-100 bg-cream-200 shadow-sm">
-                {user?.avatar ? (
+                {user.avatar ? (
                   <Image
                     src={user.avatar}
                     alt={user.name}
@@ -134,19 +168,19 @@ export default function ProfilePage() {
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center font-heading text-3xl text-brown-700">
-                    {user?.name?.charAt(0) || "U"}
+                    {user.name?.charAt(0) || "U"}
                   </div>
                 )}
               </div>
 
               <h2 className="font-heading text-xl font-bold text-[#4A2418]">
-                {user?.name || "Priya Sharma"}
+                {user.name}
               </h2>
-              <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+              <p className="text-xs text-muted-foreground truncate">{user.email}</p>
 
               <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-cream-100 text-[#B5502B] border border-border/40">
                 <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Role: {user?.role || "CUSTOMER"}</span>
+                <span>Role: {user.role}</span>
               </div>
 
               {/* Quick stats */}
@@ -170,61 +204,61 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Test Role Switcher Card */}
+            {/* Account Role Selector Card */}
             <div className="bg-white p-6 rounded-2xl border border-border/50 shadow-sm space-y-3">
               <h3 className="font-heading text-sm font-bold text-[#4A2418]">
-                ⚡ Quick Role Switcher
+                Account Mode
               </h3>
               <p className="text-[11px] text-muted-foreground">
-                Instantly preview ArtisanConnect from different personas:
+                Select your active mode on ArtisanConnect:
               </p>
               <div className="space-y-2 pt-1">
                 <button
                   type="button"
-                  onClick={() => handleSwitchRole("customer")}
+                  onClick={() => handleSwitchRole("CUSTOMER")}
                   className={`w-full flex items-center justify-between p-2.5 rounded-xl text-xs font-semibold border transition-all ${
-                    user?.role === "CUSTOMER"
+                    user.role === "CUSTOMER"
                       ? "border-[#B5502B] bg-[#fae2d7] text-[#B5502B]"
                       : "border-border hover:bg-cream-50"
                   }`}
                 >
                   <span className="flex items-center gap-2">
                     <User className="w-3.5 h-3.5" />
-                    Buyer (Priya)
+                    Customer (Buyer)
                   </span>
-                  {user?.role === "CUSTOMER" && <CheckCircle2 className="w-3.5 h-3.5" />}
+                  {user.role === "CUSTOMER" && <CheckCircle2 className="w-3.5 h-3.5" />}
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => handleSwitchRole("artisan")}
+                  onClick={() => handleSwitchRole("ARTISAN")}
                   className={`w-full flex items-center justify-between p-2.5 rounded-xl text-xs font-semibold border transition-all ${
-                    user?.role === "ARTISAN"
+                    user.role === "ARTISAN"
                       ? "border-[#B5502B] bg-[#fae2d7] text-[#B5502B]"
                       : "border-border hover:bg-cream-50"
                   }`}
                 >
                   <span className="flex items-center gap-2">
                     <Store className="w-3.5 h-3.5" />
-                    Artisan (Meera)
+                    Artisan Studio
                   </span>
-                  {user?.role === "ARTISAN" && <CheckCircle2 className="w-3.5 h-3.5" />}
+                  {user.role === "ARTISAN" && <CheckCircle2 className="w-3.5 h-3.5" />}
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => handleSwitchRole("admin")}
+                  onClick={() => handleSwitchRole("ADMIN")}
                   className={`w-full flex items-center justify-between p-2.5 rounded-xl text-xs font-semibold border transition-all ${
-                    user?.role === "ADMIN"
+                    user.role === "ADMIN"
                       ? "border-purple-600 bg-purple-50 text-purple-700"
                       : "border-border hover:bg-cream-50"
                   }`}
                 >
                   <span className="flex items-center gap-2">
                     <LayoutDashboard className="w-3.5 h-3.5" />
-                    Admin (Operations)
+                    Platform Admin
                   </span>
-                  {user?.role === "ADMIN" && <CheckCircle2 className="w-3.5 h-3.5" />}
+                  {user.role === "ADMIN" && <CheckCircle2 className="w-3.5 h-3.5" />}
                 </button>
               </div>
             </div>
@@ -249,6 +283,7 @@ export default function ProfilePage() {
                       required
                       value={name}
                       onChange={(e) => setName(e.target.value)}
+                      placeholder="Your Full Name"
                       className="w-full h-10 pl-9 pr-3 rounded-lg border border-border text-xs focus:ring-1 focus:ring-[#B5502B]"
                     />
                   </div>
@@ -262,9 +297,9 @@ export default function ProfilePage() {
                     <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input
                       type="tel"
-                      required
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
+                      placeholder="+91 98765 43210"
                       className="w-full h-10 pl-9 pr-3 rounded-lg border border-border text-xs focus:ring-1 focus:ring-[#B5502B]"
                     />
                   </div>
@@ -282,6 +317,7 @@ export default function ProfilePage() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@domain.com"
                     className="w-full h-10 pl-9 pr-3 rounded-lg border border-border text-xs focus:ring-1 focus:ring-[#B5502B]"
                   />
                 </div>
@@ -300,9 +336,9 @@ export default function ProfilePage() {
                     </label>
                     <input
                       type="text"
-                      required
                       value={addressLine1}
                       onChange={(e) => setAddressLine1(e.target.value)}
+                      placeholder="Street address, apartment, suite"
                       className="w-full h-10 px-3 rounded-lg border border-border text-xs focus:ring-1 focus:ring-[#B5502B]"
                     />
                   </div>
@@ -314,9 +350,9 @@ export default function ProfilePage() {
                       </label>
                       <input
                         type="text"
-                        required
                         value={city}
                         onChange={(e) => setCity(e.target.value)}
+                        placeholder="City"
                         className="w-full h-10 px-3 rounded-lg border border-border text-xs focus:ring-1 focus:ring-[#B5502B]"
                       />
                     </div>
@@ -326,9 +362,9 @@ export default function ProfilePage() {
                       </label>
                       <input
                         type="text"
-                        required
                         value={state}
                         onChange={(e) => setState(e.target.value)}
+                        placeholder="State"
                         className="w-full h-10 px-3 rounded-lg border border-border text-xs focus:ring-1 focus:ring-[#B5502B]"
                       />
                     </div>
@@ -338,10 +374,10 @@ export default function ProfilePage() {
                       </label>
                       <input
                         type="text"
-                        required
                         maxLength={6}
                         value={pincode}
                         onChange={(e) => setPincode(e.target.value)}
+                        placeholder="110001"
                         className="w-full h-10 px-3 rounded-lg border border-border text-xs focus:ring-1 focus:ring-[#B5502B]"
                       />
                     </div>

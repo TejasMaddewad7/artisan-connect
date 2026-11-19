@@ -1,6 +1,24 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+// Helper for status text
+function getStatusText(status: string): string {
+  switch (status) {
+    case "CONFIRMED":
+      return "Order confirmed & assigned to artisan studio for crafting";
+    case "PROCESSING":
+      return "Artisan is actively crafting / packaging your order";
+    case "SHIPPED":
+      return "Shipped with courier tracking";
+    case "DELIVERED":
+      return "Delivered safely";
+    case "CANCELLED":
+      return "Order cancelled";
+    default:
+      return "Order placed";
+  }
+}
+
 // GET - Fetch user's orders
 export async function GET(request: Request) {
   try {
@@ -40,7 +58,7 @@ export async function GET(request: Request) {
       items: o.items.map((i) => ({
         product: {
           ...i.product,
-          artisan: { ...i.product.artisan, memberSince: "2021" },
+          artisan: { ...i.product.artisan, memberSince: "2026" },
           createdAt: i.product.createdAt.toISOString(),
           updatedAt: i.product.updatedAt.toISOString(),
         },
@@ -79,9 +97,35 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { userId, items, paymentMethod, shippingAddress, subtotal, deliveryFee, codFee, total } = body;
 
-    if (!userId || !items || items.length === 0) {
+    if (!items || items.length === 0) {
       return NextResponse.json(
-        { error: "userId and items are required" },
+        { error: "Cart items are required to place order" },
+        { status: 400 }
+      );
+    }
+
+    // Resolve or create user if needed
+    let validUserId = userId;
+    if (!validUserId && shippingAddress?.email) {
+      let existing = await prisma.user.findUnique({
+        where: { email: shippingAddress.email.toLowerCase().trim() },
+      });
+      if (!existing) {
+        existing = await prisma.user.create({
+          data: {
+            email: shippingAddress.email.toLowerCase().trim(),
+            name: shippingAddress.fullName || "Customer",
+            phone: shippingAddress.phone || null,
+            role: "CUSTOMER",
+          },
+        });
+      }
+      validUserId = existing.id;
+    }
+
+    if (!validUserId) {
+      return NextResponse.json(
+        { error: "Valid user or contact email is required to place an order" },
         { status: 400 }
       );
     }
@@ -93,7 +137,7 @@ export async function POST(request: Request) {
       const newOrder = await tx.order.create({
         data: {
           orderNumber,
-          userId,
+          userId: validUserId,
           status: paymentMethod === "COD" ? "CONFIRMED" : "PENDING_PAYMENT",
           subtotal,
           deliveryFee: deliveryFee || 0,
@@ -115,9 +159,8 @@ export async function POST(request: Request) {
             include: {
               product: {
                 include: {
-                  images: { orderBy: { order: "asc" }, take: 1 },
-                  category: true,
-                  artisan: { select: { id: true, shopName: true, slug: true } },
+                  artisan: true,
+                  images: { take: 1 },
                 },
               },
             },
@@ -125,64 +168,15 @@ export async function POST(request: Request) {
         },
       });
 
-      // Decrement stock for each product
-      for (const item of items) {
-        await tx.product.update({
-          where: { id: item.productId },
-          data: { stock: { decrement: item.quantity } },
-        });
-      }
-
       return newOrder;
     });
 
-    // Save shipping address if provided
-    if (shippingAddress && userId) {
-      const existingAddress = await prisma.address.findFirst({
-        where: { userId, isDefault: true },
-      });
-      if (!existingAddress) {
-        await prisma.address.create({
-          data: {
-            userId,
-            fullName: shippingAddress.fullName,
-            phone: shippingAddress.phone,
-            addressLine1: shippingAddress.addressLine1,
-            city: shippingAddress.city,
-            state: shippingAddress.state,
-            pincode: shippingAddress.pincode,
-            isDefault: true,
-          },
-        });
-      }
-    }
-
-    return NextResponse.json({
-      order: {
-        id: order.id,
-        orderNumber: order.orderNumber,
-        createdAt: order.createdAt.toISOString(),
-        status: order.status,
-        total: order.total,
-      },
-    }, { status: 201 });
+    return NextResponse.json({ order }, { status: 201 });
   } catch (error) {
     console.error("Order creation error:", error);
     return NextResponse.json(
       { error: "Failed to create order" },
       { status: 500 }
     );
-  }
-}
-
-function getStatusText(status: string): string {
-  switch (status) {
-    case "PENDING_PAYMENT": return "Awaiting payment confirmation";
-    case "CONFIRMED": return "Order confirmed & assigned to artisan studio for crafting";
-    case "PROCESSING": return "Artisan is carefully preparing your order";
-    case "SHIPPED": return "In transit from artisan studio";
-    case "DELIVERED": return "Delivered at doorstep with eco packaging";
-    case "CANCELLED": return "Order was cancelled";
-    default: return status;
   }
 }

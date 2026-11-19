@@ -3,10 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Lock, Mail, ArrowRight, ShieldCheck, User } from "lucide-react";
+import { Lock, Mail, ArrowRight } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { useAuthStore } from "@/stores/auth.store";
+import { GoogleLoginSection } from "@/components/auth/google-login-modal";
 import { toast } from "sonner";
 
 export default function SignInPage() {
@@ -15,7 +16,6 @@ export default function SignInPage() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const setUser = useAuthStore((s) => s.setUser);
-  const loginAs = useAuthStore((s) => s.loginAs);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,34 +47,9 @@ export default function SignInPage() {
         router.push("/");
       }
     } catch {
-      // Fallback in case of network issue
-      let roleToLog: "customer" | "artisan" | "admin" = "customer";
-      if (email.includes("admin")) roleToLog = "admin";
-      else if (email.includes("artisan") || email.includes("meera")) roleToLog = "artisan";
-      loginAs(roleToLog);
-      toast.success(`Signed in as ${roleToLog}!`);
-      router.push(roleToLog === "admin" ? "/admin" : roleToLog === "artisan" ? "/sell/dashboard" : "/");
+      toast.error("Unable to connect to the database. Please try again.");
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const fillDemo = (role: "admin" | "artisan" | "customer") => {
-    if (role === "admin") {
-      setEmail("admin@artisanconnect.in");
-      setPassword("Password@123");
-      loginAs("admin");
-      toast.info("Logged in as Super Admin (Curation Team)");
-    } else if (role === "artisan") {
-      setEmail("meera@artisanconnect.in");
-      setPassword("Password@123");
-      loginAs("artisan");
-      toast.info("Logged in as Artisan (Meera Sharma)");
-    } else {
-      setEmail("customer@demo.com");
-      setPassword("Password@123");
-      loginAs("customer");
-      toast.info("Logged in as Customer (Priya Sharma)");
     }
   };
 
@@ -96,36 +71,22 @@ export default function SignInPage() {
             </p>
           </div>
 
-          {/* Quick Demo Login Buttons */}
-          <div className="p-3 bg-cream-50 rounded-xl border border-border/40 mb-6">
-            <p className="text-[11px] font-semibold text-center text-brown-800 mb-2">
-              ⚡ 1-Click Demo Logins:
-            </p>
-            <div className="grid grid-cols-3 gap-1.5">
-              <button
-                type="button"
-                onClick={() => fillDemo("customer")}
-                className="py-1.5 px-2 rounded-lg bg-white border border-border text-[11px] font-semibold hover:bg-cream-100 transition-colors"
-              >
-                Customer
-              </button>
-              <button
-                type="button"
-                onClick={() => fillDemo("artisan")}
-                className="py-1.5 px-2 rounded-lg bg-white border border-border text-[11px] font-semibold hover:bg-cream-100 transition-colors"
-              >
-                Artisan
-              </button>
-              <button
-                type="button"
-                onClick={() => fillDemo("admin")}
-                className="py-1.5 px-2 rounded-lg bg-white border border-border text-[11px] font-semibold hover:bg-cream-100 transition-colors"
-              >
-                Admin
-              </button>
-            </div>
+          {/* Google Sign In Window with Customer / Artisan / Admin selection */}
+          <div className="mb-6">
+            <GoogleLoginSection />
           </div>
 
+          {/* Divider */}
+          <div className="relative my-6 text-center">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-border/60" />
+            </div>
+            <span className="relative bg-white px-3 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+              Or sign in with email
+            </span>
+          </div>
+
+          {/* Email / Password Form */}
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-foreground mb-1">

@@ -1,16 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ShieldCheck, CreditCard, Banknote, ArrowRight, CheckCircle2, Lock } from "lucide-react";
+import { ShieldCheck, CreditCard, Banknote, ArrowRight, Lock } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { useCartStore } from "@/stores/cart.store";
 import { useOrderStore, type OrderRecord } from "@/stores/order.store";
 import { useAuthStore } from "@/stores/auth.store";
+import { GoogleLoginSection } from "@/components/auth/google-login-modal";
 import { formatPrice } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -24,14 +25,29 @@ export default function CheckoutPage() {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const [formData, setFormData] = useState({
-    fullName: user?.name || "Priya Sharma",
-    phone: user?.phone || "9876543210",
-    email: user?.email || "customer@demo.com",
-    addressLine1: user?.address?.addressLine1 || "Flat 402, Lotus Greens, Sector 15",
-    city: user?.address?.city || "Jaipur",
-    state: user?.address?.state || "Rajasthan",
-    pincode: user?.address?.pincode || "302001",
+    fullName: user?.name || "",
+    phone: user?.phone || "",
+    email: user?.email || "",
+    addressLine1: user?.address?.addressLine1 || "",
+    city: user?.address?.city || "",
+    state: user?.address?.state || "",
+    pincode: user?.address?.pincode || "",
   });
+
+  useEffect(() => {
+    if (user) {
+      setFormData((prev) => ({
+        ...prev,
+        fullName: user.name || prev.fullName,
+        phone: user.phone || prev.phone,
+        email: user.email || prev.email,
+        addressLine1: user.address?.addressLine1 || prev.addressLine1,
+        city: user.address?.city || prev.city,
+        state: user.address?.state || prev.state,
+        pincode: user.address?.pincode || prev.pincode,
+      }));
+    }
+  }, [user]);
 
   const subtotal = getSubtotal();
   const deliveryFee = subtotal >= 100000 || subtotal === 0 ? 0 : 8000;
@@ -48,13 +64,11 @@ export default function CheckoutPage() {
     setIsProcessing(true);
 
     try {
-      const userId = user?.id || "usr-customer-1";
-
       const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId,
+          userId: user?.id || null,
           items: items.map((i) => ({
             productId: i.productId,
             quantity: i.quantity,
@@ -178,6 +192,16 @@ export default function CheckoutPage() {
         <form onSubmit={handlePlaceOrder} className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           {/* Left Column: Delivery Address & Payment Method (7 cols) */}
           <div className="lg:col-span-7 space-y-6">
+            {/* Quick Google Sign In banner for unauthenticated customers */}
+            {!user && (
+              <div className="bg-white p-5 rounded-2xl border border-border/50 shadow-sm">
+                <p className="text-xs font-semibold text-foreground mb-2">
+                  Have an account? Sign in with Google for 1-click address autofill:
+                </p>
+                <GoogleLoginSection compact />
+              </div>
+            )}
+
             {/* Delivery Address */}
             <div className="bg-white p-6 sm:p-8 rounded-2xl border border-border/50 shadow-sm space-y-4">
               <h2 className="font-heading text-xl font-bold text-[#4A2418] pb-2 border-b border-border/40">
@@ -194,6 +218,7 @@ export default function CheckoutPage() {
                     required
                     value={formData.fullName}
                     onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                    placeholder="Recipient's Name"
                     className="w-full h-10 px-3 rounded-lg border border-border text-xs focus:ring-1 focus:ring-[#B5502B]"
                   />
                 </div>
@@ -206,6 +231,7 @@ export default function CheckoutPage() {
                     required
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    placeholder="+91 98765 43210"
                     className="w-full h-10 px-3 rounded-lg border border-border text-xs focus:ring-1 focus:ring-[#B5502B]"
                   />
                 </div>
@@ -220,6 +246,7 @@ export default function CheckoutPage() {
                   required
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="you@domain.com"
                   className="w-full h-10 px-3 rounded-lg border border-border text-xs focus:ring-1 focus:ring-[#B5502B]"
                 />
               </div>
@@ -233,6 +260,7 @@ export default function CheckoutPage() {
                   required
                   value={formData.addressLine1}
                   onChange={(e) => setFormData({ ...formData, addressLine1: e.target.value })}
+                  placeholder="Street, locality, house/flat number"
                   className="w-full h-10 px-3 rounded-lg border border-border text-xs focus:ring-1 focus:ring-[#B5502B]"
                 />
               </div>
@@ -247,6 +275,7 @@ export default function CheckoutPage() {
                     required
                     value={formData.city}
                     onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    placeholder="City"
                     className="w-full h-10 px-3 rounded-lg border border-border text-xs focus:ring-1 focus:ring-[#B5502B]"
                   />
                 </div>
@@ -259,6 +288,7 @@ export default function CheckoutPage() {
                     required
                     value={formData.state}
                     onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                    placeholder="State"
                     className="w-full h-10 px-3 rounded-lg border border-border text-xs focus:ring-1 focus:ring-[#B5502B]"
                   />
                 </div>
@@ -272,6 +302,7 @@ export default function CheckoutPage() {
                     maxLength={6}
                     value={formData.pincode}
                     onChange={(e) => setFormData({ ...formData, pincode: e.target.value })}
+                    placeholder="Pincode"
                     className="w-full h-10 px-3 rounded-lg border border-border text-xs focus:ring-1 focus:ring-[#B5502B]"
                   />
                 </div>

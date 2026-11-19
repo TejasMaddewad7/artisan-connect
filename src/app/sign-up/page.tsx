@@ -7,6 +7,7 @@ import { Lock, Mail, User, Phone, ArrowRight } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { useAuthStore } from "@/stores/auth.store";
+import { GoogleLoginSection } from "@/components/auth/google-login-modal";
 import { toast } from "sonner";
 
 export default function SignUpPage() {
@@ -50,15 +51,7 @@ export default function SignUpPage() {
       toast.success("Account created successfully! Welcome to ArtisanConnect.");
       router.push("/");
     } catch {
-      setUser({
-        id: `usr-${Date.now()}`,
-        name: formData.name || "Customer",
-        email: formData.email,
-        phone: formData.phone,
-        role: "CUSTOMER",
-      });
-      toast.success("Account created! Welcome to ArtisanConnect.");
-      router.push("/");
+      toast.error("Unable to connect to the database. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -82,6 +75,21 @@ export default function SignUpPage() {
             </p>
           </div>
 
+          {/* Google Sign In Window with Customer / Artisan selection */}
+          <div className="mb-6">
+            <GoogleLoginSection defaultRole="CUSTOMER" />
+          </div>
+
+          {/* Divider */}
+          <div className="relative my-6 text-center">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-border/60" />
+            </div>
+            <span className="relative bg-white px-3 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+              Or register with email
+            </span>
+          </div>
+
           <form onSubmit={handleRegister} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-foreground mb-1">
@@ -94,7 +102,7 @@ export default function SignUpPage() {
                   required
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Priya Sharma"
+                  placeholder="Your Name"
                   className="w-full h-10 pl-9 pr-3 rounded-lg border border-border text-xs focus:ring-1 focus:ring-[#B5502B]"
                 />
               </div>
@@ -111,7 +119,7 @@ export default function SignUpPage() {
                   required
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="priya@example.com"
+                  placeholder="you@domain.com"
                   className="w-full h-10 pl-9 pr-3 rounded-lg border border-border text-xs focus:ring-1 focus:ring-[#B5502B]"
                 />
               </div>
@@ -119,13 +127,12 @@ export default function SignUpPage() {
 
             <div>
               <label className="block text-xs font-semibold text-foreground mb-1">
-                Phone Number
+                Phone Number (Optional)
               </label>
               <div className="relative">
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <input
                   type="tel"
-                  required
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   placeholder="+91 98765 43210"
